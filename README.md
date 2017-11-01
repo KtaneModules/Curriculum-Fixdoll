@@ -1,1 +1,1 @@
-# Curriculum
+#[ModKit Wiki](../../wiki)
