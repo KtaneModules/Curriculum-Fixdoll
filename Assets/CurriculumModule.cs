@@ -10,6 +10,7 @@ public class ButtonState {
     public bool isEmpty = true;
     public int LectureCount = 0;
 
+
     public ButtonState(){
         grid = new bool[5][];
         for (int i = 0; i < grid.Length; i++) {
@@ -32,7 +33,10 @@ public class ButtonState {
 
 [System.Serializable]
 public class CurriculumModule : MonoBehaviour {
-    
+
+    private static int _moduleCount = 1;
+    private int _moduleId;
+
     public KMSelectable submit;
     public KMSelectable[] buttons = new KMSelectable[5];
     public KMAudio Audio;
@@ -46,6 +50,8 @@ public class CurriculumModule : MonoBehaviour {
         new string[]{"L 1","L 2","L 3","M 1","M 2","M 3"},
         new string[]{"L 1","L 2","L 3","E 1","E 2","E 3"}
     };
+    string[] classPairNames = new string[] {
+        "(P)hysics - (M)ath", "(P)hilosophy - (L)iterature", "(P)rogramming - (E)conomy", "(L)inguistics - (M)anagement", "(L)ogic - (E)lectronics"};
     string[][] classesOrdered = new string[5][];
     public GameObject[][] heyo = new GameObject[][] { };
     
@@ -73,9 +79,9 @@ public class CurriculumModule : MonoBehaviour {
     // Use this for initialization
     void Start () {
 
+        _moduleId = _moduleCount++;
         ModuleSetup();
         GetComponent<KMBombModule>().OnActivate += ModuleInit;
-
     }
 
     void ModuleSetup() {
@@ -86,7 +92,6 @@ public class CurriculumModule : MonoBehaviour {
             int j = i;
             buttons[j].OnInteract = delegate () { ButtonPressed(j); return false; };
         }
-        //Debug.LogFormat("Button interactions initialized");
 
         //Button random
         List<string[]> temp = new List<string[]>();
@@ -99,7 +104,6 @@ public class CurriculumModule : MonoBehaviour {
             classesOrdered[i] = temp.ElementAt(ind);
             temp.RemoveAt(ind);
         }
-        //Debug.LogFormat("Buttons randomized");
 
 
     }
@@ -141,7 +145,6 @@ public class CurriculumModule : MonoBehaviour {
     {
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 6; j++) {
-                //Debug.Log(i + "," + j);
                 cells[i * 6 + j].SetActive(false);
             }
         }
@@ -173,10 +176,12 @@ public class CurriculumModule : MonoBehaviour {
             if (temp % 2 == 0)
             {
                 CorrectSections[pos] = 0;
+                classPairNames[i] = classPairNames[i].Insert(classPairNames[i].IndexOf('('), "*");
             }
             else
             {
                 CorrectSections[pos] = 3;
+                classPairNames[i] = classPairNames[i].Insert(classPairNames[i].LastIndexOf('('), "*");
             }
             CorrectSections[pos] += UnityEngine.Random.Range(0, 3);
         }
@@ -213,16 +218,15 @@ public class CurriculumModule : MonoBehaviour {
             else if (sg && (int)temp.y == 0) i--;
             else if (lecs.Contains(temp)) i--;
             else {
-                //if(!solGenerated)Debug.Log(temp);
                 lecs.Push(temp);
             }
         }
         if (!solGenerated)
         {
-            string prink = "[Curriculum] Guaranteed solution: ";
+            string prink = "[Curriculum #{0}] Guaranteed solution: ";
             for (int i = 0; i < 5; i++)
             {
-                prink += classesOrdered[i][CorrectSections[i]] + ", ";
+                prink += classesOrdered[i][CorrectSections[i]] + " - ";
                 for (int j = 0; j < Sections[i][CorrectSections[i]].LectureCount; j++)
                 {
                     Vector2 temp = lecs.Pop();
@@ -232,7 +236,7 @@ public class CurriculumModule : MonoBehaviour {
                 
             }
             solGenerated = true;
-            Debug.Log(prink);
+            Debug.LogFormat(prink.TrimEnd(' ', '-'), _moduleId);
         }
         else {
             for (int i = 0; i < 5; i++)
@@ -266,6 +270,12 @@ public class CurriculumModule : MonoBehaviour {
 
         AssignCorrectSections(serial);
 
+        Debug.LogFormat("[Curriculum #{0}] Classes on the buttons, in reading order (Asterisks indicate the correct class in each pair):", _moduleId);
+        for (int i = 0; i < 5; i++) {
+            Debug.LogFormat("[Curriculum #{0}] {1}", _moduleId, classPairNames[Array.IndexOf(classes, classesOrdered[i])]);
+        }
+        
+        
         //Teh main solution
         GenerateSolutions(bandPractice, sleepyGary);
         //Generate multiple false solutions to avoid button mashing
@@ -286,17 +296,27 @@ public class CurriculumModule : MonoBehaviour {
             buttons[i].GetComponentInChildren<TextMesh>().text = classesOrdered[i][0];
             LightEmUp(i, buttonAt[i]);
         }
-
-        Debug.LogFormat("[Curriculum] Started");
-        Debug.LogFormat("[Curriculum] Band Practice: " + bandPractice);
-        Debug.LogFormat("[Curriculum] Sleepy Gary: " + sleepyGary);
+        
+        Debug.LogFormat("[Curriculum #{0}] Band Practice: {1}", _moduleId, bandPractice);
+        Debug.LogFormat("[Curriculum #{0}] Sleepy Gary: {1}", _moduleId, sleepyGary);
     }
 
     void SubmitPressed() {
+        //TODO : write the current situation whenever the Submit button is pressed
+        
+        String temp = "";
+        for (int i = 0; i < 5; i++) {
+            temp += classesOrdered[i][buttonAt[i]] + " - ";
+        }
+        Debug.LogFormat("[Curriculum #{0}] Submit pressed", _moduleId);
+        Debug.LogFormat("[Curriculum #{0}] Current button states: {1}", _moduleId, temp.TrimEnd(' ', '-'));
+        Debug.LogFormat("[Curriculum #{0}] Bookworm: {1}", _moduleId, Info.GetStrikes() == 0);
+
+
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, submit.transform);
         if (!CheckLectures()) {
             GetComponent<KMBombModule>().HandleStrike();
-            Debug.LogFormat("[Curriculum] Strike: Wrong lectures");
+            Debug.LogFormat("[Curriculum #{0}] Strike: Wrong classes taken", _moduleId);
             return;
         }
         bool bwCheck = true;
@@ -351,8 +371,6 @@ public class CurriculumModule : MonoBehaviour {
             buttonAt[buttonNum]=0;
         }
         LightEmUp(buttonNum, buttonAt[buttonNum]);
-        //Debug.Log("Button " + (buttonNum+1) + " pressed. It is now in the state number " + (buttonAt[buttonNum]+1) + ".");
-
         
         
     }
