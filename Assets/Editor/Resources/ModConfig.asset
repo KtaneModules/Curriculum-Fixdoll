@@ -13,5 +13,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: curriculum
   title: Curriculum
-  version: 1.0.2
+  version: 1.0.3
   outputFolder: build
