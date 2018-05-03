@@ -13,10 +13,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   WorkshopPublishedFileID: 1185966688
   Title: Curriculum
-  Description: "This module aims to make you want to go back to college just so you
-    can use a better scheduling system. Anything would be better than this.\r\n\nSpecial
-    thanks to clutterArranger for all the help with the technical stuff.\n\r\nModule
-    ID: curriculum\r\n\r\nManual PDF: https://ktane.timwi.de/HTML/Curriculum.html"
-  PreviewImage: {fileID: 2800000, guid: 27d0d5b81c2e737428283b46bf623a6c, type: 3}
   Tags:
   - Regular Module

@@ -1,10 +1,9 @@
-using UnityEngine;
-using UnityEditor;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-
 using System.Reflection;
 using Newtonsoft.Json;
+using UnityEngine;
 
 public class FakeBombInfo : MonoBehaviour
 {
@@ -151,8 +150,9 @@ public class FakeBombInfo : MonoBehaviour
 
     void Awake()
     {
-        widgets = new Widget[5];
-        for (int a = 0; a < 5; a++)
+        const int numWidgets = 5;
+        widgets = new Widget[numWidgets];
+        for (int a = 0; a < numWidgets; a++)
         {
             int r = Random.Range(0, 3);
             if (r == 0) widgets[a] = new PortWidget();
@@ -172,19 +172,17 @@ public class FakeBombInfo : MonoBehaviour
         };
         string str1 = string.Empty;
         for (int index = 0; index < 2; ++index) str1 = str1 + possibleCharArray[Random.Range(0, possibleCharArray.Length)];
-        string str2 = str1 + (object) Random.Range(0, 9);
+        string str2 = str1 + (object) Random.Range(0, 10);
         for (int index = 3; index < 5; ++index) str2 = str2 + possibleCharArray[Random.Range(0, possibleCharArray.Length - 10)];
-        serial = str2 + Random.Range(0, 9);
+        serial = str2 + Random.Range(0, 10);
 
         Debug.Log("Serial: " + serial);
     }
 
-    float startupTime = 3f;
+    float startupTime = .5f;
 
     public delegate void LightsOn();
     public LightsOn ActivateLights;
-
-    private Widget widgetHandler;
 
     void FixedUpdate()
     {
@@ -307,6 +305,8 @@ public class FakeBombInfo : MonoBehaviour
             string r = w.GetResult(queryKey, queryInfo);
             if (r != null) responses.Add(r);
         }
+        if (queryKey == "Unity")
+            responses.Add(JsonConvert.SerializeObject(new Dictionary<string, bool>() { { "Unity", true } }));
         return responses;
     }
 
@@ -367,7 +367,7 @@ public class TestHarness : MonoBehaviour
     TestSelectableArea currentSelectableArea;
 
     AudioSource audioSource;
-    List<AudioClip> audioClips;
+    public List<AudioClip> AudioClips;
 
     void Awake()
     {
@@ -434,10 +434,9 @@ public class TestHarness : MonoBehaviour
             {
                 if (f.FieldType.Equals(typeof(KMBombInfo)))
                 {
-                    KMBombInfo component = (KMBombInfo)f.GetValue(s);
-                    if (component.OnBombExploded != null) fakeInfo.Detonate += new FakeBombInfo.OnDetonate(component.OnBombExploded);
-                    if (component.OnBombSolved != null) fakeInfo.HandleSolved += new FakeBombInfo.OnSolved(component.OnBombSolved);
-                    continue;
+                    KMBombInfo component = (KMBombInfo) f.GetValue(s);
+                    fakeInfo.Detonate += delegate { if (component.OnBombExploded != null) component.OnBombExploded(); };
+                    fakeInfo.HandleSolved += delegate { if (component.OnBombSolved != null) component.OnBombSolved(); };
                 }
             }
         }
@@ -499,21 +498,6 @@ public class TestHarness : MonoBehaviour
 
         currentSelectable.ActivateChildSelectableAreas();
 
-
-        //Load all the audio clips in the asset database
-        audioClips = new List<AudioClip>();
-        string[] audioClipAssetGUIDs = AssetDatabase.FindAssets("t:AudioClip");
-
-        foreach (var guid in audioClipAssetGUIDs)
-        {
-            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(AssetDatabase.GUIDToAssetPath(guid));
-
-            if (clip != null)
-            {
-                audioClips.Add(clip);
-            }
-        }
-
         audioSource = gameObject.AddComponent<AudioSource>();
         KMAudio[] kmAudios = FindObjectsOfType<KMAudio>();
         foreach (KMAudio kmAudio in kmAudios)
@@ -524,9 +508,9 @@ public class TestHarness : MonoBehaviour
 
     protected void PlaySoundHandler(string clipName, Transform t)
     {
-        if (audioClips.Count > 0)
+        if (AudioClips != null && AudioClips.Count > 0)
         {
-            AudioClip clip = audioClips.Where(a => a.name == clipName).First();
+            AudioClip clip = AudioClips.Where(a => a.name == clipName).First();
 
             if (clip != null)
             {
@@ -644,6 +628,120 @@ public class TestHarness : MonoBehaviour
         }
     }
 
+    // TPK Methods
+    protected void DoInteractionStart(KMSelectable interactable)
+    {
+        interactable.OnInteract();
+    }
+
+    protected void DoInteractionEnd(KMSelectable interactable)
+    {
+        if (interactable.OnInteractEnded != null)
+        {
+            interactable.OnInteractEnded();
+        }
+    }
+
+    Dictionary<Component, HashSet<KMSelectable>> ComponentHelds = new Dictionary<Component, HashSet<KMSelectable>> { };
+    IEnumerator SimulateModule(Component component, Transform moduleTransform, MethodInfo method, string command)
+    {
+        // Simple Command
+        if (method.ReturnType == typeof(KMSelectable[]))
+        {
+            KMSelectable[] selectableSequence = null;
+            try
+            {
+                selectableSequence = (KMSelectable[]) method.Invoke(component, new object[] { command });
+                if (selectableSequence == null)
+                {
+                    yield break;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogErrorFormat("An exception occurred while trying to invoke {0}.{1}; the command invokation will not continue.", method.DeclaringType.FullName, method.Name);
+                Debug.LogException(ex);
+                yield break;
+            }
+
+            int initialStrikes = fakeInfo.strikes;
+            int initialSolved = fakeInfo.GetSolvedModuleNames().Count;
+            foreach (KMSelectable selectable in selectableSequence)
+            {
+                DoInteractionStart(selectable);
+                yield return new WaitForSeconds(0.1f);
+                DoInteractionEnd(selectable);
+
+                if (fakeInfo.strikes != initialStrikes || fakeInfo.GetSolvedModuleNames().Count != initialSolved)
+                {
+                    break;
+                }
+            };
+        }
+
+        // Complex Commands
+        if (method.ReturnType == typeof(IEnumerator))
+        {
+            IEnumerator responseCoroutine = null;
+            try
+            {
+                responseCoroutine = (IEnumerator) method.Invoke(component, new object[] { command });
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogErrorFormat("An exception occurred while trying to invoke {0}.{1}; the command invokation will not continue.", method.DeclaringType.FullName, method.Name);
+                Debug.LogException(ex);
+                yield break;
+            }
+
+            if (responseCoroutine == null)
+                yield break;
+
+            if (!ComponentHelds.ContainsKey(component))
+                ComponentHelds[component] = new HashSet<KMSelectable>();
+            HashSet<KMSelectable> heldSelectables = ComponentHelds[component];
+
+            int initialStrikes = fakeInfo.strikes;
+            int initialSolved = fakeInfo.GetSolvedModuleNames().Count;
+
+            while (responseCoroutine.MoveNext())
+            {
+                object currentObject = responseCoroutine.Current;
+                if (currentObject is KMSelectable)
+                {
+                    KMSelectable selectable = (KMSelectable) currentObject;
+                    if (heldSelectables.Contains(selectable))
+                    {
+                        DoInteractionEnd(selectable);
+                        heldSelectables.Remove(selectable);
+                        if (fakeInfo.strikes != initialStrikes || fakeInfo.GetSolvedModuleNames().Count != initialSolved)
+                            yield break;
+                    }
+                    else
+                    {
+                        DoInteractionStart(selectable);
+                        heldSelectables.Add(selectable);
+                    }
+                }
+                else if (currentObject is string)
+                {
+                    Debug.Log("Twitch handler sent: " + currentObject);
+                    yield return currentObject;
+                }
+                else if (currentObject is Quaternion)
+                {
+                    moduleTransform.localRotation = (Quaternion) currentObject;
+                }
+                else
+                    yield return currentObject;
+
+                if (fakeInfo.strikes != initialStrikes || fakeInfo.GetSolvedModuleNames().Count != initialSolved)
+                    yield break;
+            }
+        }
+    }
+
+    string command = "";
     void OnGUI()
     {
         if (GUILayout.Button("Activate Needy Modules"))
@@ -681,9 +779,31 @@ public class TestHarness : MonoBehaviour
         }
 
         GUILayout.Label("Time remaining: " + fakeInfo.GetFormattedTime());
+
+        GUILayout.Space(10);
+
+        command = GUILayout.TextField(command);
+        if ((GUILayout.Button("Simulate Twitch Command") || Event.current.keyCode == KeyCode.Return) && command != "")
+        {
+            Debug.Log("Twitch Command: " + command);
+
+            foreach (KMBombModule module in FindObjectsOfType<KMBombModule>())
+            {
+                Component[] allComponents = module.gameObject.GetComponentsInChildren<Component>(true);
+                foreach (Component component in allComponents)
+                {
+                    System.Type type = component.GetType();
+                    MethodInfo method = type.GetMethod("ProcessTwitchCommand", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    if (method != null)
+                        StartCoroutine(SimulateModule(component, module.transform, method, command));
+                }
+            }
+            command = "";
+        }
     }
 
-    private Light light;
+    private Light testLight;
 
     public void PrepareLights()
     {
@@ -694,9 +814,9 @@ public class TestHarness : MonoBehaviour
 
         GameObject o = new GameObject("Light");
         o.transform.localPosition = new Vector3(0, 3, 0);
-        o.transform.localRotation = Quaternion.Euler(new Vector3(50, -30, 0));
-        light = o.AddComponent<Light>();
-        light.type = LightType.Directional;
+        o.transform.localRotation = Quaternion.Euler(new Vector3(130, -30, 0));
+        testLight = o.AddComponent<Light>();
+        testLight.type = LightType.Directional;
     }
 
     public void TurnLightsOn()
@@ -705,7 +825,7 @@ public class TestHarness : MonoBehaviour
         RenderSettings.ambientIntensity = 1f;
         DynamicGI.UpdateEnvironment();
 
-        light.enabled = true;
+        testLight.enabled = true;
     }
 
     public void TurnLightsOff()
@@ -714,6 +834,6 @@ public class TestHarness : MonoBehaviour
         RenderSettings.ambientIntensity = 0.1f;
         DynamicGI.UpdateEnvironment();
 
-        light.enabled = false;
+        testLight.enabled = false;
     }
 }

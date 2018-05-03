@@ -4,7 +4,7 @@ using UnityEngine;
 using Curriculum;
 using System;
 
-
+enum Cond {BandPractice, SleepyGary, Mathlete, PartTimer, PartyAnimal, FreshmanYear, Nothing};//TODO everything you haven't done yet
 public class ButtonState {
     public bool[][] grid;
     public bool isEmpty = true;
@@ -34,6 +34,7 @@ public class ButtonState {
 [System.Serializable]
 public class CurriculumModule : MonoBehaviour {
 
+
     private static int _moduleCount = 1;
     private int _moduleId;
 
@@ -50,7 +51,7 @@ public class CurriculumModule : MonoBehaviour {
         new string[]{"L 1","L 2","L 3","M 1","M 2","M 3"},
         new string[]{"L 1","L 2","L 3","E 1","E 2","E 3"}
     };
-    string[] classPairNames = new string[] {
+    string[] classPairNames = new string[] {  
         "(P)hysics - (M)ath", "(P)hilosophy - (L)iterature", "(P)rogramming - (E)conomy", "(L)inguistics - (M)anagement", "(L)ogic - (E)lectronics"};
     string[][] classesOrdered = new string[5][];
     public GameObject[][] heyo = new GameObject[][] { };
@@ -59,9 +60,10 @@ public class CurriculumModule : MonoBehaviour {
     int[] CorrectSections = new int[5];
     bool solGenerated = false;
     int[] buttonAt = new int[] { 0, 0, 0, 0, 0 };
-    bool sleepyGary;
-    bool bandPractice;
+    //bool sleepyGary;
+    //bool bandPractice;
     string serial;
+    Cond condition;
 
 
     ButtonState[][] Sections = new ButtonState[][] {
@@ -210,16 +212,27 @@ public class CurriculumModule : MonoBehaviour {
         }
     }
 
-    private void GenerateSolutions(bool bp, bool sg){
+    private void GenerateSolutions(Cond condition){
         Stack<Vector2> lecs = new Stack<Vector2>();
         for (int i = 0; i < 15; i++) {
             Vector2 temp = new Vector2(UnityEngine.Random.Range(0, 5), UnityEngine.Random.Range(0, 6));
-            if (bp && ((int)temp.x == 0 || (int)temp.x == 2) && (int)temp.y > 2) i--;
+
+            if (lecs.Contains(temp)) i--;
+            else if (condition == Cond.Nothing) lecs.Push(temp);
+            else if (condition == Cond.Mathlete && (int)temp.x == 1) i--;
+            else if (condition == Cond.PartyAnimal && (int)temp.y == 5) i--;
+            else if (condition == Cond.PartTimer && (int)temp.x > 2) i--;
+            else if (condition == Cond.SleepyGary && (int)temp.y == 0) i--;
+            else if (condition == Cond.BandPractice && ((int)temp.x == 0 || (int)temp.x == 2) && (int)temp.y > 2) i--;
+            else if (condition == Cond.FreshmanYear && (int)temp.x == 4 && (int)temp.y > 2) i--;
+            else lecs.Push(temp);
+            
+            /*if (bp && ((int)temp.x == 0 || (int)temp.x == 2) && (int)temp.y > 2) i--;
             else if (sg && (int)temp.y == 0) i--;
             else if (lecs.Contains(temp)) i--;
             else {
                 lecs.Push(temp);
-            }
+            }*/
         }
         if (!solGenerated)
         {
@@ -260,10 +273,26 @@ public class CurriculumModule : MonoBehaviour {
 
     void ModuleInit() {
 
-        serial = Info.GetSerialNumber();
-        bandPractice = Info.GetBatteryCount() > 2;
-        sleepyGary = Info.GetIndicators().Count() == 0;
 
+        bool emptyPlate = false;
+        foreach (object[] plate in Info.GetPortPlates()) {
+            if (plate.Length == 0) {
+                emptyPlate = true;
+                break;
+            }
+        }
+
+        serial = Info.GetSerialNumber();
+
+        if (serial.EndsWith("0")) condition = Cond.Mathlete;
+        else if (Info.GetPortCount() >= 5) condition = Cond.PartyAnimal;
+        else if (emptyPlate) condition = Cond.PartTimer;
+        else if (Info.GetIndicators().Count() == 0) condition = Cond.SleepyGary;
+        else if (Info.GetBatteryCount() > 2) condition = Cond.BandPractice;
+        else condition = Cond.FreshmanYear;
+
+        Debug.LogFormat("[Curriculum #{0}] Condition: {1}", _moduleId, condition);
+        
         TurnOffBoard();
 
         RandomizeLectureCounts();
@@ -277,12 +306,12 @@ public class CurriculumModule : MonoBehaviour {
         
         
         //Teh main solution
-        GenerateSolutions(bandPractice, sleepyGary);
+        GenerateSolutions(condition);
         //Generate multiple false solutions to avoid button mashing
         int FalseSolves = UnityEngine.Random.Range(1, 3);
         for (int i = 0; i < FalseSolves; i++)
         {
-            GenerateSolutions(false, false);
+            GenerateSolutions(Cond.Nothing);
         }
 
         for (int i = 0; i < 5 - FalseSolves; i++)
@@ -297,8 +326,6 @@ public class CurriculumModule : MonoBehaviour {
             LightEmUp(i, buttonAt[i]);
         }
         
-        Debug.LogFormat("[Curriculum #{0}] Band Practice: {1}", _moduleId, bandPractice);
-        Debug.LogFormat("[Curriculum #{0}] Sleepy Gary: {1}", _moduleId, sleepyGary);
     }
 
     void SubmitPressed() {
@@ -310,8 +337,7 @@ public class CurriculumModule : MonoBehaviour {
         }
         Debug.LogFormat("[Curriculum #{0}] Submit pressed", _moduleId);
         Debug.LogFormat("[Curriculum #{0}] Current button states: {1}", _moduleId, temp.TrimEnd(' ', '-'));
-        Debug.LogFormat("[Curriculum #{0}] Bookworm: {1}", _moduleId, Info.GetStrikes() == 0);
-
+        Debug.LogFormat("[Curriculum #{0}] Bookworm: {1}", _moduleId, Bookworm());
 
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, submit.transform);
         if (!CheckLectures()) {
@@ -319,25 +345,95 @@ public class CurriculumModule : MonoBehaviour {
             Debug.LogFormat("[Curriculum #{0}] Strike: Wrong classes taken", _moduleId);
             return;
         }
-        bool bwCheck = true;
+        bool bookwormChecked = false;
+        switch (condition) {
+            default: { break; }
+            case Cond.Mathlete: {
+
+                    for(int j = 0; j < 6; j++)
+                    {
+                        if (cells[6 + j].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+            case Cond.PartyAnimal: {
+                    for(int i = 0; i < 5; i++)
+                    {
+                        if (cells[i * 6 + 5].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+            case Cond.PartTimer: {
+                    for(int j = 0; j < 6; j++)
+                    {
+                        if (cells[18 + j].activeInHierarchy || cells[24 + j].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+            case Cond.BandPractice: {
+                    for(int j = 3; j < 6; j++)
+                    {
+                        if (cells[0 + j].activeInHierarchy || cells[12 + j].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+            case Cond.SleepyGary: {
+                    for (int i = 0; i < 5; i++)
+                    {
+                        if (cells[i * 6 + 0].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+            case Cond.FreshmanYear: {
+                    for (int j = 3; j < 6; j++)
+                    {
+                        if (cells[24 + j].activeInHierarchy)
+                        {
+                            GetComponent<KMBombModule>().HandleStrike();
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Check the condition", _moduleId);
+                            return;
+                        }
+                    }
+                    break;
+                }
+        }
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 6; j++) {
                 if (cells[i * 6 + j].activeInHierarchy)
                 {
-                    if ( ( bandPractice && (i == 0 || i == 2) && j > 2 ) || ( sleepyGary && j == 0 ) ) {
-                        GetComponent<KMBombModule>().HandleStrike();
-                        Debug.LogFormat("[Curriculum] Strike: Check conditions");
-                        return;
-                        
-                    }
-                    else if (cells[i * 6 + j].GetComponent<MeshRenderer>().material.color == Color.red) //zaa
+                    if (cells[i * 6 + j].GetComponent<MeshRenderer>().material.color == Color.red) //lol
                     {
-                        if (Info.GetStrikes() == 0 && bwCheck)
-                            bwCheck = false;
+                        if (Bookworm() && !bookwormChecked)
+                            bookwormChecked = true;
                         else
                         {
                             GetComponent<KMBombModule>().HandleStrike();
-                            Debug.LogFormat("[Curriculum] Strike: Too many conflicts");
+                            Debug.LogFormat("[Curriculum #{0}] Strike: Too many conflicts", _moduleId);
                             return;
                         }
                     }
@@ -347,6 +443,12 @@ public class CurriculumModule : MonoBehaviour {
 
         GetComponent<KMBombModule>().HandlePass();
        
+    }
+
+    private bool Bookworm()
+    {
+        if (Info.GetSolvedModuleNames().Count() > 0 && Info.GetStrikes() == 0) return true;
+        return false;
     }
 
     private bool CheckLectures()
