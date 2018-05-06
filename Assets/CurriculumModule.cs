@@ -3,6 +3,9 @@ using System.Linq;
 using UnityEngine;
 using Curriculum;
 using System;
+using System.Collections;
+using UnityEngine.SocialPlatforms;
+using Random = UnityEngine.Random;
 
 enum Cond {BandPractice, SleepyGary, Mathlete, PartTimer, PartyAnimal, FreshmanYear, Nothing};//TODO everything you haven't done yet
 public class ButtonState {
@@ -473,7 +476,130 @@ public class CurriculumModule : MonoBehaviour {
             buttonAt[buttonNum]=0;
         }
         LightEmUp(buttonNum, buttonAt[buttonNum]);
-        
-        
+    }
+
+    private bool TwitchShouldCancelCommand;
+    private string TwitchHelpMessage = "Cycle the buttons !{0} cycle. Toggle all the classes with !{0} toggle. Toggle multiple classes with !{0} toggle 1 3 4. Click a button using !{0} click 2. It's possible to add a number of times to click: !{0} click 2 3. Buttons are numbered left to right. Submit your answer with !{0} submit.";
+
+    private IEnumerator TwitchHandleForcedSolve()
+    {
+        yield return null;
+        while (string.IsNullOrEmpty(serial)) yield return true;
+
+        int[] buttonInts = new[] {0, 1, 2, 3, 4};
+        while (buttonInts.Any(x => buttonAt[x] != CorrectSections[x]))
+        {
+            buttons[buttonInts.First(x => buttonAt[x] != CorrectSections[x])].OnInteract();
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        submit.OnInteract();
+        yield return new WaitForSeconds(0.1f);
+    }
+
+    int[] buttonOffset = new int[6] { 0, 0, 0, 0, 0, 0 };
+    private IEnumerator ProcessTwitchCommand(string inputCommand)
+    {
+        var commands = inputCommand.ToLowerInvariant().Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (commands.Length.InRange(2, 3) && commands[0].EqualsAny("click", "press"))
+        {
+            int buttonPosition;
+            if (int.TryParse(commands[1], out buttonPosition))
+            {
+                if (!buttonPosition.InRange(1, 5)) yield break;
+
+                int clicks = 1;
+                if (commands.Length == 3 && !int.TryParse(commands[2], out clicks))
+                {
+                    yield break;
+                }
+
+                clicks %= 6;
+
+                if (clicks == 0) yield break;
+
+                yield return null;
+
+                buttonPosition -= 1;
+
+                KMSelectable button = buttons[buttonPosition];
+                for (int i = 0; i < clicks; i++)
+                {
+                    button.OnInteract();
+                    yield return new WaitForSeconds(0.1f);
+                }
+
+                buttonOffset[buttonPosition] += clicks;
+                buttonOffset[buttonPosition] %= 6;
+            }
+        }
+        else if (commands.Length == 1 && commands[0] == "submit")
+        {
+            yield return null;
+
+            submit.OnInteract();
+            yield return new WaitForSeconds(0.1f);
+        }
+        else if (commands.Length == 1 && commands[0] == "reset")
+        {
+            yield return null;
+            for (int buttonPosition = 0; buttonPosition < 5; buttonPosition++)
+            {
+                KMSelectable button = buttons[buttonPosition];
+                if (buttonOffset[buttonPosition] <= 0) continue;
+                for (int i = 0; i < 6 - buttonOffset[buttonPosition]; i++)
+                {
+                    button.OnInteract();
+                    yield return new WaitForSeconds(0.1f);
+                }
+                buttonOffset[buttonPosition] = 0;
+            }
+        }
+        else if (commands.Length == 1 && commands[0] == "cycle")
+        {
+            for (int buttonPosition = 0; buttonPosition < 5 && !TwitchShouldCancelCommand; buttonPosition++)
+            {
+                yield return null;
+
+                KMSelectable button = buttons[buttonPosition];
+                for (int i2 = 0; i2 < 2; i2++)
+                {
+                    for (int i3 = 0; i3 < 15 && !TwitchShouldCancelCommand; i3++)
+                    {
+                        yield return new WaitForSeconds(0.1f);
+                    }
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        button.OnInteract();
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                }
+            }
+
+            if (TwitchShouldCancelCommand)
+                yield return "cancelled";
+        }
+        else if (commands[0].EqualsAny("toggle", "flip", "switch"))
+        {
+            int pos;
+            if (commands.Length > 1 && commands.Skip(1).Any(x => !int.TryParse(x, out pos) || !pos.InRange(1, 5))) yield break;
+            int[] buttonPositions = commands.Length == 1 ? new[] { 1, 2, 3, 4, 5 } : commands.Skip(1).Select(int.Parse).Distinct().ToArray();
+
+            yield return null;
+            foreach (int buttonPosition in buttonPositions)
+            {
+                KMSelectable button = buttons[buttonPosition - 1];
+                for (int i = 0; i < 3; i++)
+                {
+                    button.OnInteract();
+                    yield return new WaitForSeconds(0.1f);
+                }
+
+                buttonOffset[buttonPosition - 1] += 3;
+                buttonOffset[buttonPosition - 1] %= 6;
+            }
+        }
     }
 }
