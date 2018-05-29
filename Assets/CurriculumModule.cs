@@ -457,8 +457,8 @@ public class CurriculumModule : MonoBehaviour {
     private bool CheckLectures()
     {
         for (int i = 0; i < CorrectSections.Length; i++) {
-            if (CorrectSections[i] > 2 && buttonAt[i] < 2) return false;
-            else if (CorrectSections[i] < 2 && buttonAt[i] > 2) return false;
+            if (CorrectSections[i] > 2 && buttonAt[i] <= 2) return false;
+            else if (CorrectSections[i] <= 2 && buttonAt[i] > 2) return false;
         }
         return true;
     }
