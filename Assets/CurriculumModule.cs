@@ -119,48 +119,17 @@ public class CurriculumModule : MonoBehaviour
 
     }
 
-    private void LightEmUp(int b, int s, bool dontCheckPrevious = false)
+    private void LightEmUp()
     {
-        bool[][] temp;
-        if (!dontCheckPrevious)
+        for (int i = 0; i < 5; i++)
         {
-            temp = Sections[b][(s + 5) % 6].grid;
-            for (int i = 0; i < temp.Length; i++)
+            for (int j = 0; j < 6; j++)
             {
-                for (int j = 0; j < temp[i].Length; j++)
-                {
-                    if (temp[i][j])
-                    {
-                        if (cells[i * 6 + j].GetComponent<MeshRenderer>().material.color == Color.red)
-                        {
-                            var hold1 = Sections[(b + 1) % 5][buttonAt[(b + 1) % 5]].grid;
-                            var hold2 = Sections[(b + 2) % 5][buttonAt[(b + 2) % 5]].grid;
-                            var hold3 = Sections[(b + 3) % 5][buttonAt[(b + 3) % 5]].grid;
-                            var hold4 = Sections[(b + 4) % 5][buttonAt[(b + 4) % 5]].grid;
-                            var hold5 = (new List<bool>() { hold1[i][j], hold2[i][j], hold3[i][j], hold4[i][j] }).Where(x => x == true);
-                            if (hold5.Count() < 2) cells[i * 6 + j].GetComponent<MeshRenderer>().material.SetColor("_Color", Color.white);
+                int classes = Enumerable.Range(0, 5).Select(b => Sections[b][buttonAt[b]].grid[i][j]).Count(x => x);
 
-                        }
-                        else cells[i * 6 + j].SetActive(false);
-                    }
-
-                }
-            }
-        }
-        temp = Sections[b][s].grid;
-        for (int i = 0; i < temp.Length; i++)
-        {
-            for (int j = 0; j < temp[i].Length; j++)
-            {
-                if (temp[i][j])
-                {
-                    if (cells[i * 6 + j].activeInHierarchy)
-                    {
-                        cells[i * 6 + j].GetComponent<MeshRenderer>().material.SetColor("_Color", Color.red);
-                    }
-                    else cells[i * 6 + j].SetActive(true);
-
-                }
+                GameObject cell = cells[i * 6 + j];
+                cell.SetActive(classes >= 1);
+                cell.GetComponent<MeshRenderer>().material.SetColor("_Color", classes >= 2 ? Color.red : Color.white);
             }
         }
     }
@@ -364,7 +333,7 @@ public class CurriculumModule : MonoBehaviour
         for (int i = 0; i < 5; i++)
         {
             buttons[i].GetComponentInChildren<TextMesh>().text = classesOrdered[i][0];
-            LightEmUp(i, buttonAt[i], true);
+            LightEmUp();
         }
 
     }
@@ -528,7 +497,7 @@ public class CurriculumModule : MonoBehaviour
             buttons[buttonNum].GetComponentInChildren<TextMesh>().text = classesOrdered[buttonNum][0];
             buttonAt[buttonNum] = 0;
         }
-        LightEmUp(buttonNum, buttonAt[buttonNum]);
+        LightEmUp();
     }
 
     private bool TwitchShouldCancelCommand;
