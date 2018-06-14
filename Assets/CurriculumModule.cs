@@ -7,35 +7,37 @@ using System.Collections;
 using UnityEngine.SocialPlatforms;
 using Random = UnityEngine.Random;
 
-enum Cond {BandPractice, SleepyGary, Mathlete, PartTimer, PartyAnimal, FreshmanYear, Nothing};//TODO everything you haven't done yet
-public class ButtonState {
+enum Cond { BandPractice, SleepyGary, Mathlete, PartTimer, PartyAnimal, FreshmanYear, Nothing };//TODO everything you haven't done yet
+public class ButtonState
+{
     public bool[][] grid;
     public bool isEmpty = true;
     public int LectureCount = 0;
 
 
-    public ButtonState(){
+    public ButtonState()
+    {
         grid = new bool[5][];
-        for (int i = 0; i < grid.Length; i++) {
+        for (int i = 0; i < grid.Length; i++)
+        {
             grid[i] = new bool[6];
         }
         isEmpty = true;
         LectureCount = 0;
     }
 
-    public ButtonState(bool[][] _grid){
+    public ButtonState(bool[][] _grid)
+    {
         isEmpty = true;
         LectureCount = 0;
-        for (int i = 0; i < grid.Length; i++) {
-            for (int j = 0; j < grid[i].Length; j++) {
-                grid[i][j] = _grid[i][j];
-            }
-        }
+
+        grid = _grid;
     }
 }
 
 [System.Serializable]
-public class CurriculumModule : MonoBehaviour {
+public class CurriculumModule : MonoBehaviour
+{
 
 
     private static int _moduleCount = 1;
@@ -54,11 +56,11 @@ public class CurriculumModule : MonoBehaviour {
         new string[]{"L 1","L 2","L 3","M 1","M 2","M 3"},
         new string[]{"L 1","L 2","L 3","E 1","E 2","E 3"}
     };
-    string[] classPairNames = new string[] {  
+    string[] classPairNames = new string[] {
         "(P)hysics - (M)ath", "(P)hilosophy - (L)iterature", "(P)rogramming - (E)conomy", "(L)inguistics - (M)anagement", "(L)ogic - (E)lectronics"};
     string[][] classesOrdered = new string[5][];
     public GameObject[][] heyo = new GameObject[][] { };
-    
+
     //(in that order)
     int[] CorrectSections = new int[5];
     bool solGenerated = false;
@@ -82,30 +84,34 @@ public class CurriculumModule : MonoBehaviour {
 
 
     // Use this for initialization
-    void Start () {
+    void Start()
+    {
 
         _moduleId = _moduleCount++;
         ModuleSetup();
         GetComponent<KMBombModule>().OnActivate += ModuleInit;
     }
 
-    void ModuleSetup() {
-        
+    void ModuleSetup()
+    {
+
         //Button interaction init
         submit.OnInteract = delegate () { SubmitPressed(); return false; };
-        for (int i = 0; i < 5; i++){
+        for (int i = 0; i < 5; i++)
+        {
             int j = i;
             buttons[j].OnInteract = delegate () { ButtonPressed(j); return false; };
         }
 
         //Button random
         List<string[]> temp = new List<string[]>();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 5; i++)
+        {
             temp.Add(classes[i]);
         }
         for (int i = 4; i >= 0; i--)
         {
-            int ind = UnityEngine.Random.Range(0, i+1);
+            int ind = UnityEngine.Random.Range(0, i + 1);
             classesOrdered[i] = temp.ElementAt(ind);
             temp.RemoveAt(ind);
         }
@@ -113,43 +119,27 @@ public class CurriculumModule : MonoBehaviour {
 
     }
 
-    private void LightEmUp(int b, int s)
+    private void LightEmUp()
     {
-        
-        bool[][] temp = Sections[b][(s + 5) % 6].grid;
-        for (int i = 0; i < temp.Length; i++)
+        for (int i = 0; i < 5; i++)
         {
-            for (int j = 0; j < temp[i].Length; j++)
+            for (int j = 0; j < 6; j++)
             {
-                if (temp[i][j]) {
-                    if (cells[i*6+j].GetComponent<MeshRenderer>().material.color == Color.red)
-                    {
-                        cells[i * 6 + j].GetComponent<MeshRenderer>().material.SetColor("_Color", Color.white);
-                       
-                    }
-                    else cells[i * 6 + j].SetActive(false);
-                }
-                
-            }
-        }
-        temp = Sections[b][s].grid;
-        for (int i = 0; i < temp.Length; i++) {
-            for (int j = 0; j < temp[i].Length; j++) {
-                if (temp[i][j]) {
-                    if (cells[i * 6 + j].activeInHierarchy) {
-                        cells[i * 6 + j].GetComponent<MeshRenderer>().material.SetColor("_Color", Color.red);
-                    }
-                    else cells[i * 6 + j].SetActive(true);
-                    
-                }
+                int classes = Enumerable.Range(0, 5).Select(b => Sections[b][buttonAt[b]].grid[i][j]).Count(x => x);
+
+                GameObject cell = cells[i * 6 + j];
+                cell.SetActive(classes >= 1);
+                cell.GetComponent<MeshRenderer>().material.SetColor("_Color", classes >= 2 ? Color.red : Color.white);
             }
         }
     }
 
     private void TurnOffBoard()
     {
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 6; j++) {
+        for (int i = 0; i < 5; i++)
+        {
+            for (int j = 0; j < 6; j++)
+            {
                 cells[i * 6 + j].SetActive(false);
             }
         }
@@ -158,10 +148,12 @@ public class CurriculumModule : MonoBehaviour {
     private void RandomizeLectureCounts()
     {
         int[] LectureCount = new int[10];
-        for (int i = 0; i < LectureCount.Length; i++) {
-            LectureCount[i] = UnityEngine.Random.Range(2, 4);
+        for (int i = 0; i < LectureCount.Length; i++)
+        {
+            LectureCount[i] = Random.Range(2, 4);
         }
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 5; i++)
+        {
             int pos = Array.IndexOf(classesOrdered, classes[i]);
             int j = i * 2;
             Sections[pos][0].LectureCount = LectureCount[j];
@@ -174,8 +166,10 @@ public class CurriculumModule : MonoBehaviour {
 
     }
 
-    private void AssignCorrectSections(string serial) {
-        for (int i = 0; i < 5; i++) {
+    private void AssignCorrectSections(string serial)
+    {
+        for (int i = 0; i < 5; i++)
+        {
             char temp = serial.ElementAt(i);
             int pos = Array.IndexOf(classesOrdered, classes[i]);
             if (temp % 2 == 0)
@@ -191,12 +185,15 @@ public class CurriculumModule : MonoBehaviour {
             CorrectSections[pos] += UnityEngine.Random.Range(0, 3);
         }
     }
-    
+
     private void GenerateOtherCycles()
     {
-        for (int i = 0; i < Sections.Length; i++) {
-            for (int j = 0; j < Sections[i].Length; j++) {
-                if (Sections[i][j].isEmpty) {
+        for (int i = 0; i < Sections.Length; i++)
+        {
+            for (int j = 0; j < Sections[i].Length; j++)
+            {
+                if (Sections[i][j].isEmpty)
+                {
                     Stack<Vector2> lecs = new Stack<Vector2>();
                     for (int k = 0; k < 3; k++)
                     {
@@ -204,7 +201,8 @@ public class CurriculumModule : MonoBehaviour {
                         if (lecs.Contains(temp)) k--;
                         else lecs.Push(temp);
                     }
-                    for (int k = 0; k < Sections[i][j].LectureCount; k++) {
+                    for (int k = 0; k < Sections[i][j].LectureCount; k++)
+                    {
                         Vector2 temp = lecs.Pop();
                         Sections[i][j].grid[(int)temp.x][(int)temp.y] = true;
                     }
@@ -215,9 +213,11 @@ public class CurriculumModule : MonoBehaviour {
         }
     }
 
-    private void GenerateSolutions(Cond condition){
+    private void GenerateSolutions(Cond condition)
+    {
         Stack<Vector2> lecs = new Stack<Vector2>();
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < 15; i++)
+        {
             Vector2 temp = new Vector2(UnityEngine.Random.Range(0, 5), UnityEngine.Random.Range(0, 6));
 
             if (lecs.Contains(temp)) i--;
@@ -229,7 +229,7 @@ public class CurriculumModule : MonoBehaviour {
             else if (condition == Cond.BandPractice && ((int)temp.x == 0 || (int)temp.x == 2) && (int)temp.y > 2) i--;
             else if (condition == Cond.FreshmanYear && (int)temp.x == 4 && (int)temp.y > 2) i--;
             else lecs.Push(temp);
-            
+
             /*if (bp && ((int)temp.x == 0 || (int)temp.x == 2) && (int)temp.y > 2) i--;
             else if (sg && (int)temp.y == 0) i--;
             else if (lecs.Contains(temp)) i--;
@@ -249,21 +249,24 @@ public class CurriculumModule : MonoBehaviour {
                     Sections[i][CorrectSections[i]].grid[(int)temp.x][(int)temp.y] = true;
                     Sections[i][CorrectSections[i]].isEmpty = false;
                 }
-                
+
             }
             solGenerated = true;
             Debug.LogFormat(prink.TrimEnd(' ', '-'), _moduleId);
         }
-        else {
+        else
+        {
             for (int i = 0; i < 5; i++)
             {
                 int randSec = UnityEngine.Random.Range(0, 3);
                 if (CorrectSections[i] < 3) randSec += 3;
-                while (!Sections[i][randSec].isEmpty) {
+                while (!Sections[i][randSec].isEmpty)
+                {
                     randSec = UnityEngine.Random.Range(0, 3);
                     if (CorrectSections[i] < 3) randSec += 3;
                 }
-                for (int j = 0; j < Sections[i][randSec].LectureCount; j++) {
+                for (int j = 0; j < Sections[i][randSec].LectureCount; j++)
+                {
                     Vector2 temp = lecs.Pop();
                     Sections[i][randSec].grid[(int)temp.x][(int)temp.y] = true;
                     Sections[i][randSec].isEmpty = false;
@@ -274,12 +277,15 @@ public class CurriculumModule : MonoBehaviour {
         lecs.Clear();
     }
 
-    void ModuleInit() {
+    void ModuleInit()
+    {
 
 
         bool emptyPlate = false;
-        foreach (object[] plate in Info.GetPortPlates()) {
-            if (plate.Length == 0) {
+        foreach (object[] plate in Info.GetPortPlates())
+        {
+            if (plate.Length == 0)
+            {
                 emptyPlate = true;
                 break;
             }
@@ -295,7 +301,7 @@ public class CurriculumModule : MonoBehaviour {
         else condition = Cond.FreshmanYear;
 
         Debug.LogFormat("[Curriculum #{0}] Condition: {1}", _moduleId, condition);
-        
+
         TurnOffBoard();
 
         RandomizeLectureCounts();
@@ -303,11 +309,12 @@ public class CurriculumModule : MonoBehaviour {
         AssignCorrectSections(serial);
 
         Debug.LogFormat("[Curriculum #{0}] Classes on the buttons, in reading order (Asterisks indicate the correct class in each pair):", _moduleId);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 5; i++)
+        {
             Debug.LogFormat("[Curriculum #{0}] {1}", _moduleId, classPairNames[Array.IndexOf(classes, classesOrdered[i])]);
         }
-        
-        
+
+
         //Teh main solution
         GenerateSolutions(condition);
         //Generate multiple false solutions to avoid button mashing
@@ -326,16 +333,18 @@ public class CurriculumModule : MonoBehaviour {
         for (int i = 0; i < 5; i++)
         {
             buttons[i].GetComponentInChildren<TextMesh>().text = classesOrdered[i][0];
-            LightEmUp(i, buttonAt[i]);
+            LightEmUp();
         }
-        
+
     }
 
-    void SubmitPressed() {
+    void SubmitPressed()
+    {
         //TODO : write the current situation whenever the Submit button is pressed
-        
+
         String temp = "";
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 5; i++)
+        {
             temp += classesOrdered[i][buttonAt[i]] + " - ";
         }
         Debug.LogFormat("[Curriculum #{0}] Submit pressed", _moduleId);
@@ -343,17 +352,20 @@ public class CurriculumModule : MonoBehaviour {
         Debug.LogFormat("[Curriculum #{0}] Bookworm: {1}", _moduleId, Bookworm());
 
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, submit.transform);
-        if (!CheckLectures()) {
+        if (!CheckLectures())
+        {
             GetComponent<KMBombModule>().HandleStrike();
             Debug.LogFormat("[Curriculum #{0}] Strike: Wrong classes taken", _moduleId);
             return;
         }
         bool bookwormChecked = false;
-        switch (condition) {
+        switch (condition)
+        {
             default: { break; }
-            case Cond.Mathlete: {
+            case Cond.Mathlete:
+                {
 
-                    for(int j = 0; j < 6; j++)
+                    for (int j = 0; j < 6; j++)
                     {
                         if (cells[6 + j].activeInHierarchy)
                         {
@@ -364,8 +376,9 @@ public class CurriculumModule : MonoBehaviour {
                     }
                     break;
                 }
-            case Cond.PartyAnimal: {
-                    for(int i = 0; i < 5; i++)
+            case Cond.PartyAnimal:
+                {
+                    for (int i = 0; i < 5; i++)
                     {
                         if (cells[i * 6 + 5].activeInHierarchy)
                         {
@@ -376,8 +389,9 @@ public class CurriculumModule : MonoBehaviour {
                     }
                     break;
                 }
-            case Cond.PartTimer: {
-                    for(int j = 0; j < 6; j++)
+            case Cond.PartTimer:
+                {
+                    for (int j = 0; j < 6; j++)
                     {
                         if (cells[18 + j].activeInHierarchy || cells[24 + j].activeInHierarchy)
                         {
@@ -388,8 +402,9 @@ public class CurriculumModule : MonoBehaviour {
                     }
                     break;
                 }
-            case Cond.BandPractice: {
-                    for(int j = 3; j < 6; j++)
+            case Cond.BandPractice:
+                {
+                    for (int j = 3; j < 6; j++)
                     {
                         if (cells[0 + j].activeInHierarchy || cells[12 + j].activeInHierarchy)
                         {
@@ -400,7 +415,8 @@ public class CurriculumModule : MonoBehaviour {
                     }
                     break;
                 }
-            case Cond.SleepyGary: {
+            case Cond.SleepyGary:
+                {
                     for (int i = 0; i < 5; i++)
                     {
                         if (cells[i * 6 + 0].activeInHierarchy)
@@ -412,7 +428,8 @@ public class CurriculumModule : MonoBehaviour {
                     }
                     break;
                 }
-            case Cond.FreshmanYear: {
+            case Cond.FreshmanYear:
+                {
                     for (int j = 3; j < 6; j++)
                     {
                         if (cells[24 + j].activeInHierarchy)
@@ -425,8 +442,10 @@ public class CurriculumModule : MonoBehaviour {
                     break;
                 }
         }
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 6; j++) {
+        for (int i = 0; i < 5; i++)
+        {
+            for (int j = 0; j < 6; j++)
+            {
                 if (cells[i * 6 + j].activeInHierarchy)
                 {
                     if (cells[i * 6 + j].GetComponent<MeshRenderer>().material.color == Color.red) //lol
@@ -445,7 +464,7 @@ public class CurriculumModule : MonoBehaviour {
         }
 
         GetComponent<KMBombModule>().HandlePass();
-       
+
     }
 
     private bool Bookworm()
@@ -456,26 +475,29 @@ public class CurriculumModule : MonoBehaviour {
 
     private bool CheckLectures()
     {
-        for (int i = 0; i < CorrectSections.Length; i++) {
-            if (CorrectSections[i] > 2 && buttonAt[i] < 2) return false;
-            else if (CorrectSections[i] < 2 && buttonAt[i] > 2) return false;
+        for (int i = 0; i < CorrectSections.Length; i++)
+        {
+            if (CorrectSections[i] > 2 && buttonAt[i] <= 2) return false;
+            else if (CorrectSections[i] <= 2 && buttonAt[i] > 2) return false;
         }
         return true;
     }
 
-    void ButtonPressed(int buttonNum){
+    void ButtonPressed(int buttonNum)
+    {
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, buttons[buttonNum].transform);
         if (buttonAt[buttonNum] < 5)
         {
             buttonAt[buttonNum]++;
             buttons[buttonNum].GetComponentInChildren<TextMesh>().text = classesOrdered[buttonNum][buttonAt[buttonNum]];
-            
+
         }
-        else {
+        else
+        {
             buttons[buttonNum].GetComponentInChildren<TextMesh>().text = classesOrdered[buttonNum][0];
-            buttonAt[buttonNum]=0;
+            buttonAt[buttonNum] = 0;
         }
-        LightEmUp(buttonNum, buttonAt[buttonNum]);
+        LightEmUp();
     }
 
     private bool TwitchShouldCancelCommand;
@@ -486,7 +508,7 @@ public class CurriculumModule : MonoBehaviour {
         yield return null;
         while (string.IsNullOrEmpty(serial)) yield return true;
 
-        int[] buttonInts = new[] {0, 1, 2, 3, 4};
+        int[] buttonInts = new[] { 0, 1, 2, 3, 4 };
         while (buttonInts.Any(x => buttonAt[x] != CorrectSections[x]))
         {
             buttons[buttonInts.First(x => buttonAt[x] != CorrectSections[x])].OnInteract();

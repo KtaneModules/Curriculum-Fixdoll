@@ -1,5 +1,6 @@
 /[Ll]ibrary/
 /[Tt]emp/
+.vs/
 /[Oo]bj/
 /[Bb]uild/
 /[Bb]uilds/
@@ -30,3 +31,7 @@ sysinfo.txt
 Assets/Generated
 Gen
 
+.vs/Curriculum/v15/Server/sqlite3/db.lock
+.vs/Curriculum/v15/Server/sqlite3/storage.ide
+.vs/Curriculum/v15/Server/sqlite3/storage.ide-shm
+.vs/Curriculum/v15/Server/sqlite3/storage.ide-wal
